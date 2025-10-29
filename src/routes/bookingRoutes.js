@@ -7,7 +7,7 @@ const router = Router();
  * POST /api/bookings
  * Reçoit la demande de lavage depuis l'app mobile
  * et l'insère MANUELLEMENT dans MongoDB sans passer
- * par les validations Mongoose.
+ * par les validations Mongoose strictes.
  */
 router.post("/", async (req, res) => {
   try {
@@ -18,8 +18,8 @@ router.post("/", async (req, res) => {
       carMake,
       carModel,
       carColor,
-      timeslot,    // ex: "29/10/2025 14h"
-      serviceId,   // ex: "6900c2168af0ac8de3011e2d"
+      timeslot, // ex: "30/10/2025 14h"
+      serviceId, // ex: "6901f4...."
     } = req.body;
 
     // Vérif minimum
@@ -28,26 +28,34 @@ router.post("/", async (req, res) => {
       !phone ||
       !address ||
       !carMake ||
-      !carModel ||
       !timeslot ||
       !serviceId
     ) {
-      return res.status(400).json({ error: "Missing required fields" });
+      return res
+        .status(400)
+        .json({ error: "Missing required fields" });
     }
 
-    // Récupérer le service pour prix
+    // Récupérer le service pour prix/durée
+    let serviceObjId;
+    try {
+      serviceObjId = new mongoose.Types.ObjectId(serviceId);
+    } catch (e) {
+      return res.status(400).json({ error: "Invalid serviceId" });
+    }
+
     const serviceDoc = await mongoose.connection
       .collection("services")
-      .findOne({ _id: new mongoose.Types.ObjectId(serviceId) });
+      .findOne({ _id: serviceObjId });
 
     if (!serviceDoc) {
       return res.status(400).json({ error: "Service not found" });
     }
 
-    // Convertir le créneau client "29/10/2025 14h" -> vraie Date
+    // Convertir "30/10/2025 14h" -> objet Date JS
     let scheduledAtDate = null;
     try {
-      const [datePart, hourPartRaw] = timeslot.split(" "); // ["29/10/2025","14h"]
+      const [datePart, hourPartRaw] = timeslot.split(" "); // ["30/10/2025","14h"]
       const [day, month, year] = datePart.split("/");
       const hour = hourPartRaw.replace("h", "");
       scheduledAtDate = new Date(
@@ -59,11 +67,10 @@ router.post("/", async (req, res) => {
         0
       );
     } catch (e) {
-      // si on n'arrive pas à parser, on met null
       scheduledAtDate = null;
     }
 
-    // Construire le document qu'on veut stocker
+    // Construire le document à stocker
     const bookingData = {
       fullName,
       phone,
@@ -71,20 +78,22 @@ router.post("/", async (req, res) => {
       carMake,
       carModel,
       carColor,
-      timeslotClientText: timeslot, // texte original tapé par le client
-      scheduledAt: scheduledAtDate, // objet Date (ou null si on n'a pas pu parser)
+      timeslotClientText: timeslot, // texte tel que saisi
+      scheduledAt: scheduledAtDate, // Date (ou null si parsing raté)
+
       service: {
-        _id: new mongoose.Types.ObjectId(serviceId),
+        _id: serviceObjId,
         name: serviceDoc.name,
         priceEUR: serviceDoc.priceEUR,
         durationMin: serviceDoc.durationMin,
       },
+
       totalPriceEUR: serviceDoc.priceEUR ?? 0,
       status: "pending",
       createdAt: new Date(),
     };
 
-    // Insertion directe dans la collection bookings
+    // Insertion directe dans "bookings"
     const result = await mongoose.connection
       .collection("bookings")
       .insertOne(bookingData);
@@ -104,7 +113,7 @@ router.post("/", async (req, res) => {
 
 /**
  * GET /api/bookings
- * Liste brute des réservations pour contrôle
+ * Liste brute des réservations pour contrôle (tableau de missions)
  */
 router.get("/", async (req, res) => {
   try {
@@ -125,11 +134,8 @@ router.get("/", async (req, res) => {
 
 /**
  * PATCH /api/bookings/:id/status
- * Body JSON attendu : { "status": "done" }
- *
- * On essaye de mettre à jour le statut en utilisant d'abord l'ObjectId Mongo,
- * puis en retentant avec l'ID traité comme string brute.
- * Ensuite on relit le doc et on le renvoie.
+ * Permet de marquer une mission comme "done", "pending", etc.
+ * Body attendu: { "status": "done" }
  */
 router.patch("/:id/status", async (req, res) => {
   try {
@@ -140,74 +146,40 @@ router.patch("/:id/status", async (req, res) => {
       return res.status(400).json({ error: "Missing status" });
     }
 
-    // Essayer de caster l'id en ObjectId
-    let objectId = null;
+    // Essai avec ObjectId
+    let updated = null;
     try {
-      objectId = new mongoose.Types.ObjectId(bookingId);
+      updated = await mongoose.connection
+        .collection("bookings")
+        .findOneAndUpdate(
+          { _id: new mongoose.Types.ObjectId(bookingId) },
+          { $set: { status: status } },
+          { returnDocument: "after" }
+        );
     } catch (e) {
-      objectId = null;
+      // si l'ObjectId casse (id pas au bon format),
+      // on tente une mise à jour en string brute
     }
 
-    let updateResult = null;
-
-    // 1. Essai avec ObjectId
-    if (objectId) {
-      updateResult = await mongoose.connection
+    if (!updated || !updated.value) {
+      updated = await mongoose.connection
         .collection("bookings")
-        .updateOne(
-          { _id: objectId },
-          { $set: { status: status } }
-        );
-    }
-
-    // 2. Si ça n'a rien touché, essai avec string brute
-    if (!updateResult || updateResult.matchedCount === 0) {
-      updateResult = await mongoose.connection
-        .collection("bookings")
-        .updateOne(
+        .findOneAndUpdate(
           { _id: bookingId },
-          { $set: { status: status } }
+          { $set: { status: status } },
+          { returnDocument: "after" }
         );
     }
 
-    // 3. Si toujours rien => pas trouvé
-    if (!updateResult || updateResult.matchedCount === 0) {
-      console.log("DEBUG updateOne: no match for", bookingId);
+    if (!updated || !updated.value) {
       return res
         .status(404)
-        .json({ error: "Booking not found (updateOne both tries)" });
-    }
-
-    // 4. Relire le doc après l'update pour le renvoyer au client
-    let updatedDoc = null;
-
-    if (objectId) {
-      updatedDoc = await mongoose.connection
-        .collection("bookings")
-        .findOne({ _id: objectId });
-    }
-
-    if (!updatedDoc) {
-      updatedDoc = await mongoose.connection
-        .collection("bookings")
-        .findOne({ _id: bookingId });
-    }
-
-    if (!updatedDoc) {
-      console.log("DEBUG findOne after update: no doc for", bookingId);
-      return res.json({
-        ok: true,
-        booking: {
-          _id: bookingId,
-          status: status,
-          note: "Status updated but re-fetch failed",
-        },
-      });
+        .json({ error: "Booking not found (after both tries)" });
     }
 
     return res.json({
       ok: true,
-      booking: updatedDoc,
+      booking: updated.value,
     });
   } catch (err) {
     console.error("update status error >>>", err);
@@ -218,14 +190,14 @@ router.patch("/:id/status", async (req, res) => {
 });
 
 /**
- * POST /api/bookings/:id/done
- * Option alternative si un jour PATCH pose problème côté mobile,
- * mais normalement on utilise PATCH dans l'app admin.
+ * GET /api/bookings/:id/receipt
+ * Donne un reçu propre pour le client (preuve d'intervention / facture simple)
  */
-router.post("/:id/done", async (req, res) => {
+router.get("/:id/receipt", async (req, res) => {
   try {
     const bookingId = req.params.id;
 
+    // essayer d'interpréter l'id comme ObjectId Mongo
     let objectId = null;
     try {
       objectId = new mongoose.Types.ObjectId(bookingId);
@@ -233,52 +205,53 @@ router.post("/:id/done", async (req, res) => {
       objectId = null;
     }
 
-    let updateResult = null;
-
+    // on tente d'abord avec ObjectId
+    let booking = null;
     if (objectId) {
-      updateResult = await mongoose.connection
-        .collection("bookings")
-        .updateOne(
-          { _id: objectId },
-          { $set: { status: "done" } }
-        );
-    }
-
-    if (!updateResult || updateResult.matchedCount === 0) {
-      updateResult = await mongoose.connection
-        .collection("bookings")
-        .updateOne(
-          { _id: bookingId },
-          { $set: { status: "done" } }
-        );
-    }
-
-    if (!updateResult || updateResult.matchedCount === 0) {
-      return res
-        .status(404)
-        .json({ error: "Booking not found (done try)" });
-    }
-
-    let updatedDoc = null;
-
-    if (objectId) {
-      updatedDoc = await mongoose.connection
+      booking = await mongoose.connection
         .collection("bookings")
         .findOne({ _id: objectId });
     }
-
-    if (!updatedDoc) {
-      updatedDoc = await mongoose.connection
+    // fallback: essayer avec l'id brut en string
+    if (!booking) {
+      booking = await mongoose.connection
         .collection("bookings")
         .findOne({ _id: bookingId });
     }
 
-    return res.json({
-      ok: true,
-      booking: updatedDoc ?? { _id: bookingId, status: "done" },
-    });
+    if (!booking) {
+      return res.status(404).json({ error: "Booking not found" });
+    }
+
+    const receipt = {
+      company: "Carwash56",
+      doneAt: new Date().toISOString().slice(0, 10), // AAAA-MM-JJ
+      bookingId: booking._id,
+      status: booking.status,
+      client: {
+        name: booking.fullName,
+        phone: booking.phone,
+        address: booking.locationAddress,
+      },
+      vehicle: {
+        make: booking.carMake,
+        model: booking.carModel,
+        color: booking.carColor,
+      },
+      service: {
+        name: booking.service?.name,
+        durationMin: booking.service?.durationMin,
+        priceEUR: booking.totalPriceEUR,
+      },
+      timeslot: {
+        clientText: booking.timeslotClientText,
+        plannedDate: booking.scheduledAt,
+      },
+    };
+
+    return res.json(receipt);
   } catch (err) {
-    console.error("mark done error >>>", err);
+    console.error("receipt error >>>", err);
     return res
       .status(500)
       .json({ error: "Server error", details: String(err) });
