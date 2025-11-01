@@ -1,4 +1,4 @@
-﻿import express from "express";
+import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -32,11 +32,10 @@ const MONGO_URI =
 mongoose
   .connect(MONGO_URI)
   .then(() => {
-    console.log("âœ“ MongoDB connected");
-    app.listen(PORT, () => console.log(`âœ“ API running on http://localhost:${PORT}`));
+    console.log("✓ MongoDB connected");
+    app.listen(PORT, () => console.log(`✓ API running on http://localhost:${PORT}`));
   })
   .catch((err) => {
-    console.error("âœ— DB connection error:", err);
+    console.error("✗ DB connection error:", err);
     process.exit(1);
   });
-
