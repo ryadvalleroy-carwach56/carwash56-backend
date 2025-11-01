@@ -46,6 +46,10 @@ app.get("/delete-account", (req, res) => {
   res.sendFile(path.join(__dirname, "../public/delete-account.html"));
 });
 
+app.get("/privacy-policy", (req, res) => {
+  res.sendFile(path.join(__dirname, "../public/privacy-policy.html"));
+});
+
 // --- Gestion des erreurs (optionnel mais utile)
 app.use((err, req, res, next) => {
   console.error("Unhandled error:", err);
