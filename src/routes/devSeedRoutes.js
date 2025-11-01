@@ -4,8 +4,12 @@ import bcrypt from "bcryptjs";
 
 const router = Router();
 
-router.get("/ping", (_req, res) => res.json({ ok: true, route: "dev", ping: "pong" }));
+// Ping simple pour vérifier le montage en prod
+router.get("/ping", (_req, res) => {
+  return res.json({ ok: true, route: "dev", ping: "pong" });
+});
 
+// (facultatif) Seed services de démo
 router.post("/seed-services", async (_req, res) => {
   try {
     const col = mongoose.connection.collection("services");
@@ -13,7 +17,7 @@ router.post("/seed-services", async (_req, res) => {
     if (count === 0) {
       await col.insertMany([
         { name: "Lavage extérieur rapide", description: "Pré-lavage + rinçage + séchage microfibre", priceEUR: 25, durationMin: 30 },
-        { name: "Complet intérieur/extérieur", description: "Extérieur + aspirateur + plastiques", priceEUR: 49, durationMin: 75 },
+        { name: "Complet intérieur/extérieur", description: "Extérieur + aspirateur + plastiques", priceEUR: 49, durationMin: 75 }
       ]);
     }
     return res.json({ ok: true });
@@ -22,6 +26,7 @@ router.post("/seed-services", async (_req, res) => {
   }
 });
 
+// (facultatif) Seed admin protégé par SEED_SECRET
 router.post("/seed-admin", async (req, res) => {
   try {
     const { fullName, email, password, secret } = req.body || {};
@@ -38,6 +43,7 @@ router.post("/seed-admin", async (req, res) => {
 
     const passwordHash = await bcrypt.hash(password, 10);
     await users.insertOne({ fullName, email, passwordHash, role: "admin", createdAt: new Date() });
+
     return res.json({ ok: true, email, role: "admin" });
   } catch (e) {
     return res.status(500).json({ error: "seed-admin error", details: String(e) });
