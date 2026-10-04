@@ -245,7 +245,23 @@ app.use("/api/dev", devSeedRoutes);
 app.get("/api/health", (req, res) => {
   res.json({ ok: true, service: "carwash56-backend" });
 });
+app.get("/api/reminders/run", async (req, res) => {
+  try {
+    await checkReservationReminders();
 
+    res.json({
+      ok: true,
+      message: "Vérification des rappels terminée",
+    });
+  } catch (error) {
+    console.error("❌ Erreur route rappels :", error);
+
+    res.status(500).json({
+      ok: false,
+      error: "Erreur vérification rappels",
+    });
+  }
+});
 // Page "Suppression de compte" (obligatoire pour Play Console)
 app.get("/delete-account", (req, res) => {
   res.sendFile(path.join(__dirname, "../public/delete-account.html"));
