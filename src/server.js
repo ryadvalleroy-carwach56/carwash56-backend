@@ -53,7 +53,7 @@ async function sendExpoPush(expoPushToken, title, body, data = {}) {
   }
 }
 
-async function checkReservationReminders() {
+
   async function checkReservationReminders() {
   try {
     console.log("🔎 Vérification des rappels de rendez-vous...");
