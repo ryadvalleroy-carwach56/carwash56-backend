@@ -16,6 +16,21 @@ import devSeedRoutes from "./routes/devSeedRoutes.js";
 // Charger les variables d'env (.env)
 dotenv.config();
 
+const firebaseServiceAccountPath =
+  "/etc/secrets/firebase-service-account.json";
+
+const serviceAccount = JSON.parse(
+  fs.readFileSync(firebaseServiceAccountPath, "utf8")
+);
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
+
+const firestore = admin.firestore();
+
+console.log("✅ Firebase Admin connecté");
+
 // ESM-friendly __dirname / __filename
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
