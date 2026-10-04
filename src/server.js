@@ -29,31 +29,46 @@ admin.initializeApp({
 
 const firestore = admin.firestore();
 
-async function sendExpoPush(token, title, body, data = {}) {
-  if (!token) return false;
-
+async function checkReservationReminders() {
   try {
-    const response = await fetch("https://exp.host/--/api/v2/push/send", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        to: token,
-        title,
-        body,
-        sound: "default",
-        data,
-      }),
-    });
+    console.log("🔎 Vérification des rappels de rendez-vous...");
 
-    const result = await response.json();
+    const snapshot = await firestore
+      .collection("reservations")
+      .where("status", "==", "accepted")
+      .get();
 
-    console.log("📲 Expo Push :", result);
-    return response.ok;
+    console.log(
+      `📅 ${snapshot.size} rendez-vous confirmé(s) trouvé(s)`
+    );
+
+    for (const doc of snapshot.docs) {
+      const reservation = doc.data();
+
+      if (!reservation.dateDay || !reservation.slot) continue;
+
+      const slotStart = Number(
+        String(reservation.slot).split("-")[0]
+      );
+
+      if (!slotStart) continue;
+
+      const appointmentDate = new Date(
+        `${reservation.dateDay}T${String(slotStart).padStart(2, "0")}:00:00+02:00`
+      );
+
+      const hoursBefore =
+        (appointmentDate.getTime() - Date.now()) /
+        (1000 * 60 * 60);
+
+      console.log(
+        `⏱️ ${reservation.customerName || "Client"} : ${hoursBefore.toFixed(
+          1
+        )} h avant le rendez-vous`
+      );
+    }
   } catch (error) {
-    console.error("❌ Erreur Expo Push :", error);
-    return false;
+    console.error("❌ Erreur vérification rappels :", error);
   }
 }
  async function checkReservationReminders() {
