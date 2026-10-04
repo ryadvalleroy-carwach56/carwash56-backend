@@ -107,6 +107,52 @@ async function checkReservationReminders() {
     continue;
   }
 
+        if (
+  hoursBefore >= 1.5 &&
+  hoursBefore <= 2.5 &&
+  !reservation.reminder2hSent
+) {
+  console.log("🔔 Rappel 2h à envoyer :", reservation.customerName || "Client");
+
+  const userDoc = await firestore
+    .collection("users")
+    .doc(reservation.userId)
+    .get();
+
+  if (!userDoc.exists) {
+    console.log("❌ Utilisateur introuvable");
+    continue;
+  }
+
+  const expoPushToken = userDoc.data()?.expoPushToken;
+
+  if (!expoPushToken) {
+    console.log("❌ Aucun token Expo pour ce client");
+    continue;
+  }
+
+  await sendExpoPush(
+    expoPushToken,
+    "⏰ Rendez-vous dans 2 heures",
+    `Votre rendez-vous Carwash56 approche : ${reservation.slotLabel || reservation.slot}.`,
+    {
+      type: "reservation-reminder",
+      reminder: "2h",
+      reservationId: doc.id,
+    }
+  );
+
+  await firestore
+    .collection("reservations")
+    .doc(doc.id)
+    .update({
+      reminder2hSent: true,
+      reminder2hSentAt: new Date(),
+    });
+
+  console.log("✅ Rappel 2h envoyé :", reservation.customerName || "Client");
+}
+
   const expoPushToken = userDoc.data()?.expoPushToken;
 
   if (!expoPushToken) {
