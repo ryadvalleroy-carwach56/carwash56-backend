@@ -75,6 +75,8 @@ async function sendExpoPush(token, title, body, data = {}) {
 
 console.log("✅ Firebase Admin connecté");
 
+checkReservationReminders();
+
 // ESM-friendly __dirname / __filename
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
