@@ -47,7 +47,16 @@ async function sendExpoPush(token, title, body, data = {}) {
       }),
     });
 
-    async function checkReservationReminders() {
+    const result = await response.json();
+
+    console.log("📲 Expo Push :", result);
+    return response.ok;
+  } catch (error) {
+    console.error("❌ Erreur Expo Push :", error);
+    return false;
+  }
+}
+ async function checkReservationReminders() {
   try {
     console.log("🔎 Vérification des rappels de rendez-vous...");
 
@@ -63,16 +72,6 @@ async function sendExpoPush(token, title, body, data = {}) {
     console.error("❌ Erreur vérification rappels :", error);
   }
 }
-    const result = await response.json();
-
-    console.log("📲 Expo Push :", result);
-    return response.ok;
-  } catch (error) {
-    console.error("❌ Erreur Expo Push :", error);
-    return false;
-  }
-}
-
 console.log("✅ Firebase Admin connecté");
 
 checkReservationReminders();
