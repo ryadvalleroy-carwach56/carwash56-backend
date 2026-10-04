@@ -115,6 +115,26 @@ async function checkReservationReminders() {
   }
 
   console.log("✅ Token Expo trouvé pour", reservation.customerName || "Client");
+        await sendExpoPush(
+  expoPushToken,
+  "🚗 Rendez-vous demain",
+  `Votre rendez-vous Carwash56 est prévu demain à ${reservation.slotLabel || reservation.slot}.`,
+  {
+    type: "reservation-reminder",
+    reminder: "24h",
+    reservationId: doc.id,
+  }
+);
+
+await firestore
+  .collection("reservations")
+  .doc(doc.id)
+  .update({
+    reminder24hSent: true,
+    reminder24hSentAt: new Date(),
+  });
+
+console.log("✅ Rappel 24h envoyé :", reservation.customerName || "Client");
 }
     }
   } catch (error) {
