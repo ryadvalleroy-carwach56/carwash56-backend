@@ -47,6 +47,22 @@ async function sendExpoPush(token, title, body, data = {}) {
       }),
     });
 
+    async function checkReservationReminders() {
+  try {
+    console.log("🔎 Vérification des rappels de rendez-vous...");
+
+    const snapshot = await firestore
+      .collection("reservations")
+      .where("status", "==", "accepted")
+      .get();
+
+    console.log(
+      `📅 ${snapshot.size} rendez-vous confirmé(s) trouvé(s)`
+    );
+  } catch (error) {
+    console.error("❌ Erreur vérification rappels :", error);
+  }
+}
     const result = await response.json();
 
     console.log("📲 Expo Push :", result);
