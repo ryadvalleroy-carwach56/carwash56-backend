@@ -5,7 +5,8 @@ import cors from "cors";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
-
+import admin from "firebase-admin";
+import fs from "fs";
 // --- Routes (assure-toi que ces fichiers existent)
 import authRoutes from "./routes/authRoutes.js";
 import bookingRoutes from "./routes/bookingRoutes.js";
