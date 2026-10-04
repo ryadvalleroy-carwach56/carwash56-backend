@@ -29,6 +29,34 @@ admin.initializeApp({
 
 const firestore = admin.firestore();
 
+async function sendExpoPush(token, title, body, data = {}) {
+  if (!token) return false;
+
+  try {
+    const response = await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        to: token,
+        title,
+        body,
+        sound: "default",
+        data,
+      }),
+    });
+
+    const result = await response.json();
+
+    console.log("📲 Expo Push :", result);
+    return response.ok;
+  } catch (error) {
+    console.error("❌ Erreur Expo Push :", error);
+    return false;
+  }
+}
+
 console.log("✅ Firebase Admin connecté");
 
 // ESM-friendly __dirname / __filename
