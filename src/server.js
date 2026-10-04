@@ -96,6 +96,25 @@ async function checkReservationReminders() {
   !reservation.reminder24hSent
 ) {
   console.log("🔔 Rappel 24h à envoyer :", reservation.customerName || "Client");
+
+  const userDoc = await firestore
+    .collection("users")
+    .doc(reservation.userId)
+    .get();
+
+  if (!userDoc.exists) {
+    console.log("❌ Utilisateur introuvable");
+    continue;
+  }
+
+  const expoPushToken = userDoc.data()?.expoPushToken;
+
+  if (!expoPushToken) {
+    console.log("❌ Aucun token Expo pour ce client");
+    continue;
+  }
+
+  console.log("✅ Token Expo trouvé pour", reservation.customerName || "Client");
 }
     }
   } catch (error) {
