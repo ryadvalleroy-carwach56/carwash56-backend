@@ -29,6 +29,30 @@ admin.initializeApp({
 
 const firestore = admin.firestore();
 
+async function sendExpoPush(expoPushToken, title, body, data = {}) {
+  try {
+    const response = await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        to: expoPushToken,
+        sound: "default",
+        title,
+        body,
+        data,
+      }),
+    });
+
+    const result = await response.json();
+    console.log("📲 Réponse Expo Push :", result);
+  } catch (error) {
+    console.error("❌ Erreur Expo Push :", error);
+  }
+}
+
 async function checkReservationReminders() {
   try {
     console.log("🔎 Vérification des rappels de rendez-vous...");
