@@ -145,6 +145,49 @@ async function notifyAdminsCancellation(reservation) {
     console.error("❌ Erreur notification annulation admin :", error);
   }
 }
+
+async function notifyAdminsNewSubscription(subscription) {
+  try {
+    const adminEmails = [
+      "ryad-valleroy@hotmail.fr",
+      "carwash56@hotmail.com",
+    ];
+
+    const snapshot = await firestore
+      .collection("users")
+      .where("email", "in", adminEmails)
+      .get();
+
+    const tokens = snapshot.docs
+      .map((doc) => doc.data()?.expoPushToken)
+      .filter((token) => typeof token === "string" && token.length > 0);
+
+    if (!tokens.length) {
+      console.log("⚠️ Aucun token admin trouvé pour abonnement");
+      return;
+    }
+
+    for (const token of [...new Set(tokens)]) {
+      await sendExpoPush(
+        token,
+        "⭐ Nouvelle demande d'abonnement",
+        `${subscription.fullName || "Client"} • ${
+          subscription.planTitle || "Abonnement"
+        } • ${subscription.categoryLabel || ""} • ${
+          subscription.price || 0
+        } € • ${subscription.installments || 1}x`,
+        {
+          type: "new-subscription",
+          subscriptionId: subscription.id || "",
+        }
+      );
+    }
+
+    console.log("✅ Notification nouvel abonnement envoyée aux admins");
+  } catch (error) {
+    console.error("❌ Erreur notification abonnement admin :", error);
+  }
+}
   async function checkReservationReminders() {
   try {
     console.log("🔎 Vérification des rappels de rendez-vous...");
@@ -404,6 +447,33 @@ app.post("/api/notifications/cancellation", async (req, res) => {
     res.status(500).json({
       ok: false,
       error: "Erreur notification annulation admin",
+    });
+  }
+});
+
+app.post("/api/notifications/new-subscription", async (req, res) => {
+  try {
+    const subscription = req.body;
+
+    if (!subscription) {
+      return res.status(400).json({
+        ok: false,
+        error: "Abonnement manquant",
+      });
+    }
+
+    await notifyAdminsNewSubscription(subscription);
+
+    res.json({
+      ok: true,
+      message: "Notification abonnement admin traitée",
+    });
+  } catch (error) {
+    console.error("❌ Erreur route abonnement admin :", error);
+
+    res.status(500).json({
+      ok: false,
+      error: "Erreur notification abonnement admin",
     });
   }
 });
