@@ -53,6 +53,51 @@ async function sendExpoPush(expoPushToken, title, body, data = {}) {
   }
 }
 
+async function notifyAdminsNewReservation(reservation) {
+  try {
+    const adminEmails = [
+      "ryad-valleroy@hotmail.fr",
+      "carwash56@hotmail.com",
+    ];
+
+    const snapshot = await firestore
+      .collection("users")
+      .where("email", "in", adminEmails)
+      .get();
+
+    const tokens = snapshot.docs
+      .map((doc) => doc.data()?.expoPushToken)
+      .filter((token) => typeof token === "string" && token.length > 0);
+
+    console.log("👤 Admins trouvés :", snapshot.size);
+    console.log("📱 Tokens admin trouvés :", tokens.length);
+
+    if (!tokens.length) {
+      console.log("⚠️ Aucun token admin trouvé");
+      return;
+    }
+
+    for (const token of [...new Set(tokens)]) {
+      await sendExpoPush(
+        token,
+        "🚗 Nouvelle réservation",
+        `${reservation.customerName || "Client"} • ${
+          reservation.serviceLabel || "Prestation"
+        } • ${reservation.dateDay || ""} ${
+          reservation.slotLabel || reservation.slot || ""
+        }`,
+        {
+          type: "new-reservation",
+          reservationId: reservation.id || "",
+        }
+      );
+    }
+
+    console.log("✅ Notification nouvelle réservation envoyée aux admins");
+  } catch (error) {
+    console.error("❌ Erreur notification admin :", error);
+  }
+}
 
   async function checkReservationReminders() {
   try {
@@ -261,6 +306,33 @@ app.get("/api/reminders/run", async (req, res) => {
       error: "Erreur vérification rappels",
     });
   }
+
+  app.post("/api/notifications/new-reservation", async (req, res) => {
+  try {
+    const reservation = req.body;
+
+    if (!reservation) {
+      return res.status(400).json({
+        ok: false,
+        error: "Réservation manquante",
+      });
+    }
+
+    await notifyAdminsNewReservation(reservation);
+
+    res.json({
+      ok: true,
+      message: "Notification admin traitée",
+    });
+  } catch (error) {
+    console.error("❌ Erreur route notification admin :", error);
+
+    res.status(500).json({
+      ok: false,
+      error: "Erreur notification admin",
+    });
+  }
+});
 });
 // Page "Suppression de compte" (obligatoire pour Play Console)
 app.get("/delete-account", (req, res) => {
