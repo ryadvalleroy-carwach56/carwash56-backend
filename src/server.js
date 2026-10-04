@@ -99,6 +99,52 @@ async function notifyAdminsNewReservation(reservation) {
   }
 }
 
+async function notifyAdminsCancellation(reservation) {
+  try {
+    const adminEmails = [
+      "ryad-valleroy@hotmail.fr",
+      "carwash56@hotmail.com",
+    ];
+
+    const snapshot = await firestore
+      .collection("users")
+      .where("email", "in", adminEmails)
+      .get();
+
+    const tokens = snapshot.docs
+      .map((doc) => doc.data()?.expoPushToken)
+      .filter((token) => typeof token === "string" && token.length > 0);
+
+    if (!tokens.length) {
+      console.log("⚠️ Aucun token admin trouvé pour annulation");
+      return;
+    }
+
+    const dateLabel = reservation.dateDay
+      ? reservation.dateDay.split("-").reverse().join("/")
+      : "";
+
+    for (const token of [...new Set(tokens)]) {
+      await sendExpoPush(
+        token,
+        "❌ Réservation annulée par le client",
+        `${reservation.customerName || "Client"} • ${
+          reservation.vehicleBrand || ""
+        } ${reservation.vehicleModel || ""} • ${dateLabel} • ${
+          reservation.slotLabel || reservation.slot || ""
+        }`,
+        {
+          type: "client-cancelled-reservation",
+          reservationId: reservation.id || "",
+        }
+      );
+    }
+
+    console.log("✅ Notification annulation envoyée aux admins");
+  } catch (error) {
+    console.error("❌ Erreur notification annulation admin :", error);
+  }
+}
   async function checkReservationReminders() {
   try {
     console.log("🔎 Vérification des rappels de rendez-vous...");
@@ -333,6 +379,33 @@ app.get("/api/reminders/run", async (req, res) => {
     });
   }
 });
+});
+
+app.post("/api/notifications/cancellation", async (req, res) => {
+  try {
+    const reservation = req.body;
+
+    if (!reservation) {
+      return res.status(400).json({
+        ok: false,
+        error: "Réservation manquante",
+      });
+    }
+
+    await notifyAdminsCancellation(reservation);
+
+    res.json({
+      ok: true,
+      message: "Notification annulation admin traitée",
+    });
+  } catch (error) {
+    console.error("❌ Erreur route annulation admin :", error);
+
+    res.status(500).json({
+      ok: false,
+      error: "Erreur notification annulation admin",
+    });
+  }
 });
 // Page "Suppression de compte" (obligatoire pour Play Console)
 app.get("/delete-account", (req, res) => {
