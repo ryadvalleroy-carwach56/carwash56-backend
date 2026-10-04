@@ -54,6 +54,7 @@ async function sendExpoPush(expoPushToken, title, body, data = {}) {
 }
 
 async function checkReservationReminders() {
+  async function checkReservationReminders() {
   try {
     console.log("🔎 Vérification des rappels de rendez-vous...");
 
@@ -90,98 +91,125 @@ async function checkReservationReminders() {
           1
         )} h avant le rendez-vous`
       );
+
+      // =========================
+      // RAPPEL 24 HEURES
+      // =========================
       if (
-  hoursBefore >= 23.5 &&
-  hoursBefore <= 24.5 &&
-  !reservation.reminder24hSent
-) {
-  console.log("🔔 Rappel 24h à envoyer :", reservation.customerName || "Client");
+        hoursBefore >= 23.5 &&
+        hoursBefore <= 24.5 &&
+        !reservation.reminder24hSent
+      ) {
+        console.log(
+          "🔔 Rappel 24h à envoyer :",
+          reservation.customerName || "Client"
+        );
 
-  const userDoc = await firestore
-    .collection("users")
-    .doc(reservation.userId)
-    .get();
+        const userDoc = await firestore
+          .collection("users")
+          .doc(reservation.userId)
+          .get();
 
-  if (!userDoc.exists) {
-    console.log("❌ Utilisateur introuvable");
-    continue;
-  }
+        if (!userDoc.exists) {
+          console.log("❌ Utilisateur introuvable");
+          continue;
+        }
 
-        if (
-  hoursBefore >= 1.5 &&
-  hoursBefore <= 2.5 &&
-  !reservation.reminder2hSent
-) {
-  console.log("🔔 Rappel 2h à envoyer :", reservation.customerName || "Client");
+        const expoPushToken = userDoc.data()?.expoPushToken;
 
-  const userDoc = await firestore
-    .collection("users")
-    .doc(reservation.userId)
-    .get();
+        if (!expoPushToken) {
+          console.log("❌ Aucun token Expo pour ce client");
+          continue;
+        }
 
-  if (!userDoc.exists) {
-    console.log("❌ Utilisateur introuvable");
-    continue;
-  }
+        console.log(
+          "✅ Token Expo trouvé pour",
+          reservation.customerName || "Client"
+        );
 
-  const expoPushToken = userDoc.data()?.expoPushToken;
-
-  if (!expoPushToken) {
-    console.log("❌ Aucun token Expo pour ce client");
-    continue;
-  }
-
-  await sendExpoPush(
-    expoPushToken,
-    "⏰ Rendez-vous dans 2 heures",
-    `Votre rendez-vous Carwash56 approche : ${reservation.slotLabel || reservation.slot}.`,
-    {
-      type: "reservation-reminder",
-      reminder: "2h",
-      reservationId: doc.id,
-    }
-  );
-
-  await firestore
-    .collection("reservations")
-    .doc(doc.id)
-    .update({
-      reminder2hSent: true,
-      reminder2hSentAt: new Date(),
-    });
-
-  console.log("✅ Rappel 2h envoyé :", reservation.customerName || "Client");
-}
-
-  const expoPushToken = userDoc.data()?.expoPushToken;
-
-  if (!expoPushToken) {
-    console.log("❌ Aucun token Expo pour ce client");
-    continue;
-  }
-
-  console.log("✅ Token Expo trouvé pour", reservation.customerName || "Client");
         await sendExpoPush(
-  expoPushToken,
-  "🚗 Rendez-vous demain",
-  `Votre rendez-vous Carwash56 est prévu demain à ${reservation.slotLabel || reservation.slot}.`,
-  {
-    type: "reservation-reminder",
-    reminder: "24h",
-    reservationId: doc.id,
-  }
-);
+          expoPushToken,
+          "🚗 Rendez-vous demain",
+          `Votre rendez-vous Carwash56 est prévu demain à ${
+            reservation.slotLabel || reservation.slot
+          }.`,
+          {
+            type: "reservation-reminder",
+            reminder: "24h",
+            reservationId: doc.id,
+          }
+        );
 
-await firestore
-  .collection("reservations")
-  .doc(doc.id)
-  .update({
-    reminder24hSent: true,
-    reminder24hSentAt: new Date(),
-  });
+        await firestore
+          .collection("reservations")
+          .doc(doc.id)
+          .update({
+            reminder24hSent: true,
+            reminder24hSentAt: new Date(),
+          });
 
-console.log("✅ Rappel 24h envoyé :", reservation.customerName || "Client");
-}
+        console.log(
+          "✅ Rappel 24h envoyé :",
+          reservation.customerName || "Client"
+        );
+      }
+
+      // =========================
+      // RAPPEL 2 HEURES
+      // =========================
+      if (
+        hoursBefore >= 1.5 &&
+        hoursBefore <= 2.5 &&
+        !reservation.reminder2hSent
+      ) {
+        console.log(
+          "🔔 Rappel 2h à envoyer :",
+          reservation.customerName || "Client"
+        );
+
+        const userDoc = await firestore
+          .collection("users")
+          .doc(reservation.userId)
+          .get();
+
+        if (!userDoc.exists) {
+          console.log("❌ Utilisateur introuvable");
+          continue;
+        }
+
+        const expoPushToken = userDoc.data()?.expoPushToken;
+
+        if (!expoPushToken) {
+          console.log("❌ Aucun token Expo pour ce client");
+          continue;
+        }
+
+        await sendExpoPush(
+          expoPushToken,
+          "⏰ Rendez-vous dans 2 heures",
+          `Votre rendez-vous Carwash56 approche : ${
+            reservation.slotLabel || reservation.slot
+          }.`,
+          {
+            type: "reservation-reminder",
+            reminder: "2h",
+            reservationId: doc.id,
+          }
+        );
+
+        await firestore
+          .collection("reservations")
+          .doc(doc.id)
+          .update({
+            reminder2hSent: true,
+            reminder2hSentAt: new Date(),
+          });
+
+        console.log(
+          "✅ Rappel 2h envoyé :",
+          reservation.customerName || "Client"
+        );
+      }
     }
   } catch (error) {
     console.error("❌ Erreur vérification rappels :", error);
