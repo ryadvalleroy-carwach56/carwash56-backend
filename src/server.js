@@ -66,6 +66,13 @@ async function checkReservationReminders() {
           1
         )} h avant le rendez-vous`
       );
+      if (
+  hoursBefore >= 23.5 &&
+  hoursBefore <= 24.5 &&
+  !reservation.reminder24hSent
+) {
+  console.log("🔔 Rappel 24h à envoyer :", reservation.customerName || "Client");
+}
     }
   } catch (error) {
     console.error("❌ Erreur vérification rappels :", error);
